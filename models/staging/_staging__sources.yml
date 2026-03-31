@@ -1,0 +1,66 @@
+version: 2
+
+sources:
+  - name: jaffle_shop
+    description: Raw jaffle shop data, loaded via dbt seeds.
+    schema: main
+    tables:
+      - name: raw_customers
+        description: One record per customer.
+        columns:
+          - name: id
+            description: Primary key.
+            tests:
+              - unique
+              - not_null
+          - name: first_name
+            tests:
+              - not_null
+          - name: last_name
+            tests:
+              - not_null
+
+      - name: raw_orders
+        description: One record per order.
+        columns:
+          - name: id
+            description: Primary key.
+            tests:
+              - unique
+              - not_null
+          - name: user_id
+            description: Foreign key to raw_customers.
+            tests:
+              - not_null
+          - name: order_date
+            tests:
+              - not_null
+          - name: status
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['placed', 'shipped', 'completed', 'return_pending', 'returned']
+
+      - name: raw_payments
+        description: One record per payment. Orders can have multiple payments.
+        columns:
+          - name: id
+            description: Primary key.
+            tests:
+              - unique
+              - not_null
+          - name: order_id
+            description: Foreign key to raw_orders.
+            tests:
+              - not_null
+          - name: payment_method
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['credit_card', 'coupon', 'bank_transfer', 'gift_card']
+          - name: amount
+            description: Amount in cents.
+            tests:
+              - not_null

@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: stg_jaffle_shop__customers
+    description: Staged customer data. One record per customer.
+    columns:
+      - name: customer_id
+        description: Primary key.
+        tests:
+          - unique
+          - not_null
+      - name: first_name
+        description: Customer's first name. PII.
+        tests:
+          - not_null
+      - name: last_name
+        description: Customer's last name. PII.
+        tests:
+          - not_null
+
+  - name: stg_jaffle_shop__orders
+    description: Staged order data. One record per order.
+    columns:
+      - name: order_id
+        description: Primary key.
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Foreign key to stg_jaffle_shop__customers.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_jaffle_shop__customers')
+                field: customer_id
+      - name: ordered_at
+        description: Date the order was placed.
+        tests:
+          - not_null
+      - name: status
+        description: Current order status.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['placed', 'shipped', 'completed', 'return_pending', 'returned']
+
+  - name: stg_jaffle_shop__payments
+    description: Staged payment data. One record per payment.
+    columns:
+      - name: payment_id
+        description: Primary key.
+        tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: Foreign key to stg_jaffle_shop__orders.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_jaffle_shop__orders')
+                field: order_id
+      - name: payment_method
+        description: Payment method used for this payment.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['credit_card', 'coupon', 'bank_transfer', 'gift_card']
+      - name: amount
+        description: Payment amount in dollars.
+        tests:
+          - not_null

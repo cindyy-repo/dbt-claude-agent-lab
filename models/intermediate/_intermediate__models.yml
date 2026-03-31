@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: int_customer_orders
+    description: Order activity aggregated per customer.
+    columns:
+      - name: customer_id
+        description: Primary key — one row per customer.
+        tests:
+          - unique
+          - not_null
+      - name: first_ordered_at
+        description: Date of the customer's first order.
+        tests:
+          - not_null
+      - name: most_recent_ordered_at
+        description: Date of the customer's most recent order.
+        tests:
+          - not_null
+      - name: number_of_orders
+        description: Total number of orders placed by the customer.
+        tests:
+          - not_null
+
+  - name: int_customer_payments
+    description: Total payment amounts aggregated per customer.
+    columns:
+      - name: customer_id
+        description: Primary key — one row per customer.
+        tests:
+          - unique
+          - not_null
+      - name: total_amount
+        description: Total amount paid across all orders, in dollars.
+        tests:
+          - not_null
+
+  - name: int_order_payments
+    description: Payment amounts pivoted by payment method per order.
+    columns:
+      - name: order_id
+        description: Primary key — one row per order.
+        tests:
+          - unique
+          - not_null
+      - name: credit_card_amount
+        description: Amount paid by credit card, in dollars.
+        tests:
+          - not_null
+      - name: coupon_amount
+        description: Amount paid by coupon, in dollars.
+        tests:
+          - not_null
+      - name: bank_transfer_amount
+        description: Amount paid by bank transfer, in dollars.
+        tests:
+          - not_null
+      - name: gift_card_amount
+        description: Amount paid by gift card, in dollars.
+        tests:
+          - not_null
+      - name: total_amount
+        description: Total amount paid across all payment methods, in dollars.
+        tests:
+          - not_null

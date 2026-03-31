@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: One record per customer with derived order and payment facts.
+    columns:
+      - name: customer_id
+        description: Primary key.
+        tests:
+          - unique
+          - not_null
+      - name: first_name
+        description: Customer's first name. PII.
+        tests:
+          - not_null
+      - name: last_name
+        description: Customer's last name. PII.
+        tests:
+          - not_null
+      - name: first_ordered_at
+        description: Date of the customer's first order.
+      - name: most_recent_ordered_at
+        description: Date of the customer's most recent order.
+      - name: number_of_orders
+        description: Total number of orders placed by the customer.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+      - name: customer_lifetime_value
+        description: Total amount paid across all orders, in dollars.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+  - name: fct_orders
+    description: One record per order with payment method breakdown.
+    columns:
+      - name: order_id
+        description: Primary key.
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Foreign key to dim_customers.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: ordered_at
+        description: Date the order was placed.
+        tests:
+          - not_null
+      - name: status
+        description: '{{ doc("orders_status") }}'
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['placed', 'shipped', 'completed', 'return_pending', 'returned']
+      - name: amount
+        description: Total order amount in dollars.
+        tests:
+          - not_null
+      - name: credit_card_amount
+        description: Amount paid by credit card, in dollars.
+        tests:
+          - not_null
+      - name: coupon_amount
+        description: Amount paid by coupon, in dollars.
+        tests:
+          - not_null
+      - name: bank_transfer_amount
+        description: Amount paid by bank transfer, in dollars.
+        tests:
+          - not_null
+      - name: gift_card_amount
+        description: Amount paid by gift card, in dollars.
+        tests:
+          - not_null
