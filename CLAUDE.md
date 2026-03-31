@@ -12,6 +12,193 @@
 
 ---
 
+## Ref and Source Rules
+
+- Always use `{{ ref('model_name') }}` to reference other dbt models
+- Always use `{{ source('source_name', 'table_name') }}` for raw source data
+- Never use direct `schema.table` references in any model
+- `ref()` ensures correct build order and environment awareness
+- `source()` centralises raw data references so schema changes only need updating in one place
+
+---
+
+## YAML File Standards
+
+- Every model must have a corresponding YAML entry in the folder's `_[layer]__models.yml`
+- Every model must have: `name`, `description`
+- Every column must have: `name`, `description`
+- Tests are defined at column level, not model level
+- Sources defined in `_staging__sources.yml` in the staging folder only
+- One YAML file per folder — never one giant `schema.yml`
+- Column order in YAML must match column order in the SQL `select`
+
+---
+
+## When to Use Each Layer
+
+**Staging** (`models/staging/`)
+- 1-to-1 with a source table — rename and cast only, no business logic
+- Always use `{{ source() }}` to select from raw data
+- Never join to other models in staging
+- Always materialized as `view`
+
+**Intermediate** (`models/intermediate/`)
+- Use for joins, complex transformations, and reusable CTEs
+- Always use `{{ ref() }}` to select from staging models
+- Create when a CTE is reused in 2+ downstream models
+- Create when a CTE changes the grain of data
+- Always materialized as `view`
+
+**Marts** (`models/marts/`)
+- Business-facing output — aggregations and final column naming
+- Only select from intermediate or other mart models via `{{ ref() }}`
+- Always materialized as `table`
+- Use `fct_` prefix for facts, `dim_` prefix for dimensions
+
+---
+
+## Materialization Decision Guide
+
+| Materialization | When to use |
+|----------------|-------------|
+| `view` | Staging and intermediate (default) |
+| `ephemeral` | Lightweight transformations not exposed to end users — use sparingly, hard to debug |
+| `table` | Marts, models queried by BI tools, models with multiple downstream dependencies |
+| `incremental` | Only when table build time is too slow — never use by default |
+
+**Incremental strategies:**
+
+| Strategy | When to use |
+|----------|-------------|
+| `append` | Immutable event data where old records never change |
+| `merge` | Records that can be updated (e.g. order status) — requires `unique_key` |
+| `delete+insert` | Partition replacement |
+
+**Rule:** Start with `table`. Migrate to `incremental` only when there is a clear, measured performance reason.
+
+---
+
+## Incremental Model Standards
+
+Every incremental model must follow this template exactly:
+
+```sql
+{{ config(
+    materialized='incremental',
+    unique_key='[pk]',
+    incremental_strategy='merge'
+) }}
+
+select ...
+
+{% if is_incremental() %}
+where updated_at > (select max(updated_at) from {{ this }})
+{% endif %}
+```
+
+Checklist:
+- [ ] `is_incremental()` filter block present, filtering on `updated_at` or `created_at`
+- [ ] `unique_key` defined for merge strategy
+- [ ] Full refresh tested with `dbt build --full-refresh` after creating
+- [ ] Strategy and reason documented in the model's YAML description
+
+---
+
+## Macro Standards
+
+- Create a macro when the same logic appears in 2+ models
+- Macros live in `macros/` folder
+- Name macros: `[action]_[subject]` — e.g. `cents_to_dollars`, `generate_surrogate_key`
+- Always add a description comment at the top of every macro file
+- Always document arguments inside the macro file
+- Reference macros in models using `{{ macro_name(args) }}`
+- **Current macros:** none yet — update this list when macros are added
+
+---
+
+## Development Standards
+
+- Always develop in the `dev` environment, never `prod`
+- Limit data in dev using `target.name` to speed up iteration:
+
+```sql
+{% if target.name == 'dev' %}
+where created_at >= dateadd('day', -3, current_date)
+{% endif %}
+```
+
+- Run only the model being worked on and its downstream dependents:
+  ```bash
+  dbt build --select model_name+
+  ```
+- Always run `dbt build --select [new_model]+` after creating a model
+- Never run a full `dbt build` during development unless necessary
+
+---
+
+## Model Generator Rules
+
+Rules the agent must follow when generating new models:
+
+- Always read existing models before creating anything new — avoid duplication
+- Always identify the correct layer before writing any SQL
+- Always ask: can this reuse an existing intermediate model?
+- Always create the YAML entry alongside the SQL file
+- Always use `{{ ref() }}` or `{{ source() }}` — never raw table names
+- Always run `dbt build --select [new_model]+` after creating
+- Never generate incremental models without explicit user request
+- Never hardcode values — use `{{ var() }}` or `{{ env_var() }}`
+- If unsure about the correct layer, ask before proceeding
+- If a new CTE could be reused downstream, extract it as an intermediate model
+
+---
+
+## CTE Style Standards
+
+All models must follow this exact structure:
+
+```sql
+-- 1. Import CTEs at the top (raw references only, no transformations)
+with
+
+source_name as (
+    select * from {{ ref('stg_model') }}
+    -- or {{ source('source', 'table') }} in staging models
+),
+
+another_source as (
+    select * from {{ ref('another_model') }}
+),
+
+-- 2. Transformation CTEs in the middle (business logic here)
+transformed as (
+    select
+        column_one,
+        column_two
+    from source_name
+),
+
+-- 3. Final CTE always named 'final'
+final as (
+    select * from transformed
+)
+
+-- 4. Always end with select * from final
+select * from final
+```
+
+Rules:
+- First CTEs are always raw imports — no transformations mixed in
+- Import CTEs are named after the model they reference
+- All business logic goes in the middle transformation CTEs
+- The last CTE is always named `final`
+- Always end with `select * from final`
+- To debug: swap `select * from final` with any intermediate CTE name to inspect mid-pipeline
+- Never mix imports and transformations in the same CTE
+- CTE names use `snake_case` — no prefixes needed inside a model
+
+---
+
 ## dbt Agent Commands
 
 ### /dbt:explain [model_name]
