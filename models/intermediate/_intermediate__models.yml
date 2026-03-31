@@ -35,6 +35,34 @@ models:
         tests:
           - not_null
 
+  - name: int_monthly_revenue_by_payment_method
+    description: Revenue aggregated by calendar month and payment method. One row per month per payment method.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - month_start
+              - payment_method
+    columns:
+      - name: month_start
+        description: First day of the calendar month (date truncated to month).
+        tests:
+          - not_null
+      - name: payment_method
+        description: Payment method for this row — one of credit_card, coupon, bank_transfer, gift_card.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['credit_card', 'coupon', 'bank_transfer', 'gift_card']
+      - name: revenue
+        description: Total revenue for this payment method in this month, in dollars.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
   - name: int_order_payments
     description: Payment amounts pivoted by payment method per order.
     columns:

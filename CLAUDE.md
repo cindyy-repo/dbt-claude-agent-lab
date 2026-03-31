@@ -27,7 +27,21 @@
 - Every model must have a corresponding YAML entry in the folder's `_[layer]__models.yml`
 - Every model must have: `name`, `description`
 - Every column must have: `name`, `description`
-- Tests are defined at column level, not model level
+- Tests are defined at column level, not model level (exception: `dbt_utils.unique_combination_of_columns` is model-level)
+- **dbt 1.11+ test syntax:** dbt_utils tests require arguments nested under `arguments:`. Built-in dbt tests (unique, not_null, accepted_values, relationships) do NOT use `arguments:`.
+  ```yaml
+  # Built-in dbt test — no arguments: wrapper
+  tests:
+    - not_null
+    - accepted_values:
+        values: ['a', 'b']
+
+  # dbt_utils test — requires arguments: wrapper (dbt 1.11+)
+  tests:
+    - dbt_utils.accepted_range:
+        arguments:
+          min_value: 0
+  ```
 - Sources defined in `_staging__sources.yml` in the staging folder only
 - One YAML file per folder — never one giant `schema.yml`
 - Column order in YAML must match column order in the SQL `select`
@@ -332,6 +346,9 @@ Total: 3 items missing descriptions
   tests:
     - unique
     - not_null
+    - dbt_utils.accepted_range:
+        arguments:
+          min_value: 0
 ```
 
 **Validations:**
