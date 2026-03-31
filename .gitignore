@@ -12,3 +12,5 @@ venv/
 env/
 **/*.duckdb
 **/*.duckdb.wal
+__pycache__/
+**/*.pyc
